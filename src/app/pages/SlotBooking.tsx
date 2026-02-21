@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router';
 import { motion } from 'motion/react';
 import { Calendar as CalendarIcon, Clock, MapPin, CheckCircle2 } from 'lucide-react';
 import { useSport } from '../contexts/SportContext';
-import { TURFS, generateTimeSlots } from '../data/mockData';
+import { TURFS, generateTimeSlots, setSlotPending } from '../data/mockData';
 import { Card } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
@@ -36,6 +36,7 @@ export const SlotBooking: React.FC = () => {
 
   const handleBooking = () => {
     if (selectedSlot) {
+      setSlotPending(selectedSlot.id, dateString, sport?.id || '');
       navigate('/checkout', {
         state: {
           sport,
@@ -201,31 +202,35 @@ export const SlotBooking: React.FC = () => {
                   </div>
 
                   <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-6">
-                    {slots.map((slot) => (
-                      <button
-                        key={slot.id}
-                        onClick={() => !slot.isBooked && setSelectedSlot(slot)}
-                        disabled={slot.isBooked}
-                        className={`rounded-xl border-2 p-3 text-sm font-medium transition-all duration-200 ${
-                          slot.isBooked
-                            ? 'cursor-not-allowed border-border bg-muted text-muted-foreground opacity-50'
-                            : selectedSlot?.id === slot.id
-                            ? 'shadow-lg'
-                            : 'border-transparent hover:border-border'
-                        }`}
-                        style={
-                          !slot.isBooked && selectedSlot?.id === slot.id
-                            ? {
-                                background: `${sport.accentColor}20`,
-                                borderColor: sport.accentColor,
-                                color: sport.accentColor,
-                              }
-                            : {}
-                        }
-                      >
-                        {slot.startTime}
-                      </button>
-                    ))}
+                    {slots.map((slot) => {
+                      const isUnavailable = slot.isBooked || slot.isPending;
+                      return (
+                        <button
+                          key={slot.id}
+                          onClick={() => !isUnavailable && setSelectedSlot(slot)}
+                          disabled={isUnavailable}
+                          className={`rounded-xl border-2 p-3 text-sm font-medium transition-all duration-200 ${
+                            isUnavailable
+                              ? 'cursor-not-allowed border-border bg-muted text-muted-foreground opacity-50'
+                              : selectedSlot?.id === slot.id
+                              ? 'shadow-lg'
+                              : 'border-transparent hover:border-border'
+                          }`}
+                          style={
+                            !isUnavailable && selectedSlot?.id === slot.id
+                              ? {
+                                  background: `${sport.accentColor}20`,
+                                  borderColor: sport.accentColor,
+                                  color: sport.accentColor,
+                                }
+                              : {}
+                          }
+                        >
+                          {slot.startTime}
+                          {slot.isPending && <div className="text-[8px] uppercase">Pending</div>}
+                        </button>
+                      );
+                    })}
                   </div>
 
                   <div className="mt-4 flex items-center gap-4 text-xs text-muted-foreground">
@@ -235,7 +240,7 @@ export const SlotBooking: React.FC = () => {
                     </div>
                     <div className="flex items-center gap-2">
                       <div className="h-4 w-4 rounded bg-muted" />
-                      <span>Booked</span>
+                      <span>Booked/Pending</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <div

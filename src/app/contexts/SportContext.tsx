@@ -22,7 +22,7 @@ export const SPORTS_DATA: Record<string, Sport> = {
     darkBackground: 'linear-gradient(135deg, #0a4d2e 0%, #0d1f17 100%)',
     description: 'Book premium football turfs',
     startingPrice: 1200,
-    availableTurfs: 8,
+    availableTurfs: 1,
     defaultDuration: 60,
     isActive: true,
   },
@@ -34,22 +34,10 @@ export const SPORTS_DATA: Record<string, Sport> = {
     darkBackground: 'linear-gradient(135deg, #0d3b66 0%, #0a1929 100%)',
     description: 'Book premium cricket pitches',
     startingPrice: 1500,
-    availableTurfs: 5,
+    availableTurfs: 1,
     defaultDuration: 90,
     isActive: true,
-  },
-  badminton: {
-    id: 'badminton',
-    name: 'Badminton',
-    icon: '🏸',
-    accentColor: '#D32F2F',
-    darkBackground: 'linear-gradient(135deg, #5d1f1f 0%, #1a0f0f 100%)',
-    description: 'Book premium badminton courts',
-    startingPrice: 800,
-    availableTurfs: 0,
-    defaultDuration: 60,
-    isActive: false,
-  },
+  }
 };
 
 interface SportContextType {
@@ -67,7 +55,6 @@ export const SportProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const setCurrentSport = (sport: Sport) => {
     setCurrentSportState(sport);
-    // Update CSS variables for dynamic theming
     document.documentElement.style.setProperty('--sport-accent', sport.accentColor);
     document.documentElement.style.setProperty('--sport-background', sport.darkBackground);
   };
@@ -80,7 +67,6 @@ export const SportProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   useEffect(() => {
-    // Initialize theme on mount
     document.documentElement.style.setProperty('--sport-accent', currentSport.accentColor);
     document.documentElement.style.setProperty('--sport-background', currentSport.darkBackground);
   }, [currentSport]);

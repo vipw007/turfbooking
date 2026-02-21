@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { motion } from 'motion/react';
-import { Plus, Edit, Trash2, MapPin, DollarSign, ToggleLeft, ToggleRight } from 'lucide-react';
+import { Plus, Edit, Trash2, MapPin, IndianRupee, ToggleLeft, ToggleRight } from 'lucide-react';
 import { useSport } from '../../contexts/SportContext';
-import { TURFS } from '../../data/mockData';
+import { TURFS, deleteTurf, updateTurf, addTurf } from '../../data/mockData';
 import { Card } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
@@ -13,23 +13,62 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 
 export const TurfManagement: React.FC = () => {
   const { sports } = useSport();
-  const [turfs, setTurfs] = useState(TURFS);
+  const [localTurfs, setLocalTurfs] = useState([...TURFS]);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [editingTurf, setEditingTurf] = useState<any>(null);
   const [selectedSportFilter, setSelectedSportFilter] = useState<string>('all');
 
   const activeSports = Object.values(sports).filter((s) => s.isActive);
 
   const filteredTurfs =
     selectedSportFilter === 'all'
-      ? turfs
-      : turfs.filter((t) => t.sportId === selectedSportFilter);
+      ? localTurfs
+      : localTurfs.filter((t) => t.sportId === selectedSportFilter);
 
   const toggleTurfStatus = (turfId: string) => {
-    setTurfs((prev) =>
-      prev.map((turf) =>
-        turf.id === turfId ? { ...turf, isActive: !turf.isActive } : turf
-      )
+    const updated = localTurfs.map((turf) =>
+      turf.id === turfId ? { ...turf, isActive: !turf.isActive } : turf
     );
+    setLocalTurfs(updated);
+    updateTurf(turfId, { isActive: !localTurfs.find(t => t.id === turfId)?.isActive });
+  };
+
+  const handleDelete = (id: string) => {
+    deleteTurf(id);
+    setLocalTurfs([...TURFS]);
+  };
+
+  const handleAdd = (e: React.FormEvent) => {
+    e.preventDefault();
+    const formData = new FormData(e.target as HTMLFormElement);
+    const data = {
+      name: formData.get('name') as string,
+      sportId: formData.get('sportId') as string,
+      type: formData.get('type') as string,
+      location: formData.get('location') as string,
+      pricePerHour: Number(formData.get('price')),
+    };
+
+    addTurf(data);
+    setLocalTurfs([...TURFS]);
+    setIsAddDialogOpen(false);
+  };
+
+  const handleSave = (e: React.FormEvent) => {
+    e.preventDefault();
+    const formData = new FormData(e.target as HTMLFormElement);
+    const data = {
+      name: formData.get('name') as string,
+      location: formData.get('location') as string,
+      pricePerHour: Number(formData.get('price')),
+      type: formData.get('type') as string,
+    };
+
+    if (editingTurf) {
+      updateTurf(editingTurf.id, data);
+      setLocalTurfs([...TURFS]);
+      setEditingTurf(null);
+    }
   };
 
   return (
@@ -72,14 +111,14 @@ export const TurfManagement: React.FC = () => {
                 <DialogHeader>
                   <DialogTitle>Add New Turf</DialogTitle>
                 </DialogHeader>
-                <div className="space-y-4">
+                <form onSubmit={handleAdd} className="space-y-4">
                   <div>
                     <Label>Turf Name</Label>
-                    <Input placeholder="Enter turf name" className="mt-2 rounded-xl" />
+                    <Input name="name" placeholder="Enter turf name" required className="mt-2 rounded-xl" />
                   </div>
                   <div>
                     <Label>Sport Type</Label>
-                    <Select>
+                    <Select name="sportId" required>
                       <SelectTrigger className="mt-2 rounded-xl">
                         <SelectValue placeholder="Select sport" />
                       </SelectTrigger>
@@ -94,44 +133,28 @@ export const TurfManagement: React.FC = () => {
                   </div>
                   <div>
                     <Label>Turf Type</Label>
-                    <Input placeholder="e.g., 5v5, 7v7" className="mt-2 rounded-xl" />
+                    <Input name="type" placeholder="e.g., 5v5, 7v7" required className="mt-2 rounded-xl" />
                   </div>
                   <div>
                     <Label>Location</Label>
-                    <Input placeholder="Enter location" className="mt-2 rounded-xl" />
+                    <Input name="location" placeholder="Enter location" required className="mt-2 rounded-xl" />
                   </div>
                   <div>
-                    <Label>Price per Hour (৳)</Label>
-                    <Input type="number" placeholder="1200" className="mt-2 rounded-xl" />
+                    <Label>Price per Hour (₹)</Label>
+                    <Input name="price" type="number" placeholder="1200" required className="mt-2 rounded-xl" />
                   </div>
                   <Button
+                    type="submit"
                     className="w-full rounded-xl"
                     style={{ background: 'var(--sport-accent)' }}
-                    onClick={() => setIsAddDialogOpen(false)}
                   >
                     Add Turf
                   </Button>
-                </div>
+                </form>
               </DialogContent>
             </Dialog>
           </div>
         </motion.div>
-
-        {/* Stats */}
-        <div className="mb-8 grid gap-4 md:grid-cols-3">
-          <Card className="rounded-2xl p-4">
-            <div className="text-sm text-muted-foreground">Total Turfs</div>
-            <div className="text-2xl font-bold">{turfs.length}</div>
-          </Card>
-          <Card className="rounded-2xl p-4">
-            <div className="text-sm text-muted-foreground">Active Turfs</div>
-            <div className="text-2xl font-bold">{turfs.filter((t) => t.isActive).length}</div>
-          </Card>
-          <Card className="rounded-2xl p-4">
-            <div className="text-sm text-muted-foreground">Sports Covered</div>
-            <div className="text-2xl font-bold">{activeSports.length}</div>
-          </Card>
-        </div>
 
         {/* Turfs Grid */}
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
@@ -162,11 +185,11 @@ export const TurfManagement: React.FC = () => {
                       <Badge
                         className="rounded-full"
                         style={{
-                          background: sport.accentColor,
+                          background: sport?.accentColor || '#ccc',
                           color: '#000',
                         }}
                       >
-                        {sport.icon} {sport.name}
+                        {sport?.icon} {sport?.name}
                       </Badge>
                     </div>
 
@@ -191,8 +214,8 @@ export const TurfManagement: React.FC = () => {
                         <span>{turf.location}</span>
                       </div>
                       <div className="flex items-center gap-2 text-muted-foreground">
-                        <DollarSign className="h-4 w-4" />
-                        <span>৳{turf.pricePerHour}/hour</span>
+                        <IndianRupee className="h-4 w-4" />
+                        <span>₹{turf.pricePerHour}/hour</span>
                       </div>
                     </div>
 
@@ -201,30 +224,13 @@ export const TurfManagement: React.FC = () => {
                         variant="outline"
                         className="rounded-full"
                         style={{
-                          background: `${sport.accentColor}15`,
-                          color: sport.accentColor,
-                          borderColor: `${sport.accentColor}30`,
+                          background: `${sport?.accentColor}15`,
+                          color: sport?.accentColor,
+                          borderColor: `${sport?.accentColor}30`,
                         }}
                       >
                         {turf.type}
                       </Badge>
-                    </div>
-
-                    {/* Amenities */}
-                    <div className="mb-4 flex flex-wrap gap-1">
-                      {turf.amenities.slice(0, 3).map((amenity) => (
-                        <span
-                          key={amenity}
-                          className="rounded-full bg-muted px-2 py-1 text-xs text-muted-foreground"
-                        >
-                          {amenity}
-                        </span>
-                      ))}
-                      {turf.amenities.length > 3 && (
-                        <span className="rounded-full bg-muted px-2 py-1 text-xs text-muted-foreground">
-                          +{turf.amenities.length - 3}
-                        </span>
-                      )}
                     </div>
 
                     {/* Actions */}
@@ -242,10 +248,51 @@ export const TurfManagement: React.FC = () => {
                         )}
                         {turf.isActive ? 'Deactivate' : 'Activate'}
                       </Button>
-                      <Button variant="outline" size="sm" className="rounded-xl">
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <Button variant="outline" size="sm" className="rounded-xl text-destructive">
+                      
+                      <Dialog open={editingTurf?.id === turf.id} onOpenChange={(open) => !open && setEditingTurf(null)}>
+                        <DialogTrigger asChild>
+                          <Button variant="outline" size="sm" className="rounded-xl" onClick={() => setEditingTurf(turf)}>
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                        </DialogTrigger>
+                        <DialogContent className="rounded-2xl">
+                          <DialogHeader>
+                            <DialogTitle>Edit Turf</DialogTitle>
+                          </DialogHeader>
+                          <form onSubmit={handleSave} className="space-y-4">
+                            <div>
+                              <Label>Turf Name</Label>
+                              <Input name="name" defaultValue={turf.name} required className="mt-2 rounded-xl" />
+                            </div>
+                            <div>
+                              <Label>Turf Type</Label>
+                              <Input name="type" defaultValue={turf.type} required className="mt-2 rounded-xl" />
+                            </div>
+                            <div>
+                              <Label>Location</Label>
+                              <Input name="location" defaultValue={turf.location} required className="mt-2 rounded-xl" />
+                            </div>
+                            <div>
+                              <Label>Price per Hour (₹)</Label>
+                              <Input name="price" type="number" defaultValue={turf.pricePerHour} required className="mt-2 rounded-xl" />
+                            </div>
+                            <Button
+                              type="submit"
+                              className="w-full rounded-xl"
+                              style={{ background: 'var(--sport-accent)' }}
+                            >
+                              Save Changes
+                            </Button>
+                          </form>
+                        </DialogContent>
+                      </Dialog>
+
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="rounded-xl text-destructive"
+                        onClick={() => handleDelete(turf.id)}
+                      >
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>

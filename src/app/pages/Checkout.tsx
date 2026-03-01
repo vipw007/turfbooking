@@ -27,12 +27,6 @@ export const Checkout: React.FC = () => {
     email: '',
     phone: '',
   });
-  const [upiId, setUpiId] = useState('');
-  const [cardData, setCardData] = useState({
-    number: '',
-    expiry: '',
-    cvv: '',
-  });
   const [paymentMethod, setPaymentMethod] = useState<'upi' | 'card' | 'razorpay' | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
@@ -58,23 +52,15 @@ export const Checkout: React.FC = () => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  const handleCardChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setCardData({ ...cardData, [e.target.name]: e.target.value });
-  };
-
   const isFormValid = () => {
-    const basicInfo = formData.name && formData.email && formData.phone;
-    if (!basicInfo) return false;
-    if (paymentMethod === 'upi') return upiId.includes('@');
-    if (paymentMethod === 'card') return cardData.number.length >= 16 && cardData.expiry && cardData.cvv;
-    if (paymentMethod === 'razorpay') return true;
-    return false;
+    return formData.name && formData.email && formData.phone;
   };
 
   const handleRazorpay = () => {
     setIsProcessing(true);
+    
     const options = {
-      key: "rzp_test_dummy_key",
+      key: import.meta.env.VITE_RAZORPAY_KEY_ID,
       amount: slot.price * 100,
       currency: "INR",
       name: "TurfBook",
@@ -110,35 +96,17 @@ export const Checkout: React.FC = () => {
         name: formData.name,
         email: formData.email,
         contact: formData.phone,
-        method: paymentMethod === 'upi' ? 'upi' : undefined
       },
       theme: { color: sport.accentColor },
       modal: { ondismiss: () => setIsProcessing(false) }
     };
+    
     const rzp = new window.Razorpay(options);
     rzp.open();
   };
 
-  const handleManualPayment = () => {
-    setIsProcessing(true);
-    setTimeout(() => {
-      const customerDetails = {
-        ...formData,
-        paymentMethod: paymentMethod === 'upi' ? `UPI (${upiId})` : `Card (****${cardData.number.slice(-4)})`
-      };
-      confirmBooking(slot.id, format(date, 'yyyy-MM-dd'), sport.id, customerDetails);
-      setIsProcessing(false);
-      setShowSuccess(true);
-      setTimeout(() => navigate('/'), 3000);
-    }, 2500);
-  };
-
   const handlePayment = () => {
-    if (paymentMethod === 'razorpay' || paymentMethod === 'upi') {
-      handleRazorpay();
-    } else {
-      handleManualPayment();
-    }
+    handleRazorpay();
   };
 
   if (!sport || !turf || !slot) {
@@ -228,50 +196,14 @@ export const Checkout: React.FC = () => {
                     style={{ borderColor: paymentMethod === 'card' ? sport.accentColor : undefined, background: paymentMethod === 'card' ? `${sport.accentColor}10` : undefined }}
                   >
                     <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#1a1a1a]"><CreditCard className="h-6 w-6 text-white" /></div>
-                    <div className="text-center"><div className="text-sm font-semibold">Card</div><div className="text-[10px] text-muted-foreground">Manual Entry</div></div>
+                    <div className="text-center"><div className="text-sm font-semibold">Card</div><div className="text-[10px] text-muted-foreground">Razorpay Card</div></div>
                   </button>
                 </div>
 
-                <AnimatePresence mode="wait">
-                  {paymentMethod === 'upi' && (
-                    <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden pt-4">
-                      <div className="rounded-xl bg-blue-500/5 border border-blue-500/20 p-4 text-center">
-                        <p className="text-sm text-blue-600 font-medium">Razorpay UPI Gateway</p>
-                        <p className="text-xs text-muted-foreground mt-1">You will be redirected to Razorpay to complete UPI payment</p>
-                      </div>
-                    </motion.div>
-                  )}
-
-                  {paymentMethod === 'card' && (
-                    <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden pt-4">
-                      <div className="space-y-4 rounded-xl bg-muted/50 p-4">
-                        <div>
-                          <Label htmlFor="number">Card Number</Label>
-                          <Input id="number" name="number" placeholder="0000 0000 0000 0000" value={cardData.number} onChange={handleCardChange} className="mt-2 rounded-xl bg-background" />
-                        </div>
-                        <div className="grid gap-4 grid-cols-2">
-                          <div>
-                            <Label htmlFor="expiry">Expiry Date</Label>
-                            <Input id="expiry" name="expiry" placeholder="MM/YY" value={cardData.expiry} onChange={handleCardChange} className="mt-2 rounded-xl bg-background" />
-                          </div>
-                          <div>
-                            <Label htmlFor="cvv">CVV</Label>
-                            <Input id="cvv" name="cvv" type="password" placeholder="***" value={cardData.cvv} onChange={handleCardChange} className="mt-2 rounded-xl bg-background" />
-                          </div>
-                        </div>
-                      </div>
-                    </motion.div>
-                  )}
-
-                  {paymentMethod === 'razorpay' && (
-                    <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden pt-4">
-                      <div className="rounded-xl bg-blue-500/5 border border-blue-500/20 p-4 text-center">
-                        <p className="text-sm text-blue-600 font-medium">Official Razorpay Gateway</p>
-                        <p className="text-xs text-muted-foreground mt-1">Supports UPI, Cards, Netbanking, and Wallets</p>
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
+                <div className="rounded-xl bg-blue-500/5 border border-blue-500/20 p-4 text-center">
+                  <p className="text-sm text-blue-600 font-medium">Official Razorpay Gateway</p>
+                  <p className="text-xs text-muted-foreground mt-1">Supports UPI, Cards, Netbanking, and Wallets</p>
+                </div>
               </div>
             </Card>
           </div>
@@ -310,7 +242,7 @@ export const Checkout: React.FC = () => {
                     {isProcessing ? (
                       <div className="flex items-center gap-2"><Loader2 className="h-5 w-5 animate-spin" /> Processing...</div>
                     ) : (
-                      paymentMethod === 'razorpay' || paymentMethod === 'upi' ? `Pay with Razorpay ₹${slot.price}` : `Pay Now ₹${slot.price}`
+                      `Pay with Razorpay ₹${slot.price}`
                     )}
                   </Button>
                   <p className="mt-4 text-center text-xs text-muted-foreground">Secure & Encrypted Payment</p>

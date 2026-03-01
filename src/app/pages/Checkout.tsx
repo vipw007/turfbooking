@@ -1,13 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router';
 import { motion, AnimatePresence } from 'motion/react';
-import { CheckCircle2, CreditCard, Smartphone, Timer, Loader2 } from 'lucide-react';
+import { CheckCircle2, CreditCard, Smartphone, Timer, Loader2, ShieldCheck } from 'lucide-react';
 import { Card } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { format } from 'date-fns';
 import { confirmBooking } from '../data/mockData';
+import { httpsCallable } from 'firebase/functions';
+import { functions } from '../lib/firebase';
+
+declare global {
+  interface Window {
+    Razorpay: any;
+  }
+}
 
 export const Checkout: React.FC = () => {
   const location = useLocation();
@@ -25,7 +33,7 @@ export const Checkout: React.FC = () => {
     expiry: '',
     cvv: '',
   });
-  const [paymentMethod, setPaymentMethod] = useState<'upi' | 'card' | null>(null);
+  const [paymentMethod, setPaymentMethod] = useState<'upi' | 'card' | 'razorpay' | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [timeLeft, setTimeLeft] = useState(300);
@@ -59,10 +67,59 @@ export const Checkout: React.FC = () => {
     if (!basicInfo) return false;
     if (paymentMethod === 'upi') return upiId.includes('@');
     if (paymentMethod === 'card') return cardData.number.length >= 16 && cardData.expiry && cardData.cvv;
+    if (paymentMethod === 'razorpay') return true;
     return false;
   };
 
-  const handlePayment = () => {
+  const handleRazorpay = () => {
+    setIsProcessing(true);
+    const options = {
+      key: "rzp_test_dummy_key",
+      amount: slot.price * 100,
+      currency: "INR",
+      name: "TurfBook",
+      description: `${sport.name} Booking`,
+      handler: async function (response: any) {
+        const customerDetails = {
+          ...formData,
+          paymentMethod: `Razorpay (ID: ${response.razorpay_payment_id})`
+        };
+
+        try {
+          const createBookingFn = httpsCallable(functions, 'createBooking');
+          await createBookingFn({
+            slotId: slot.id,
+            turfId: turf.id,
+            date: format(date, 'yyyy-MM-dd'),
+            customerDetails
+          });
+
+          confirmBooking(slot.id, format(date, 'yyyy-MM-dd'), sport.id, customerDetails);
+          setIsProcessing(false);
+          setShowSuccess(true);
+          setTimeout(() => navigate('/'), 3000);
+        } catch (error) {
+          console.error("Firebase Function Error:", error);
+          confirmBooking(slot.id, format(date, 'yyyy-MM-dd'), sport.id, customerDetails);
+          setIsProcessing(false);
+          setShowSuccess(true);
+          setTimeout(() => navigate('/'), 3000);
+        }
+      },
+      prefill: {
+        name: formData.name,
+        email: formData.email,
+        contact: formData.phone,
+        method: paymentMethod === 'upi' ? 'upi' : undefined
+      },
+      theme: { color: sport.accentColor },
+      modal: { ondismiss: () => setIsProcessing(false) }
+    };
+    const rzp = new window.Razorpay(options);
+    rzp.open();
+  };
+
+  const handleManualPayment = () => {
     setIsProcessing(true);
     setTimeout(() => {
       const customerDetails = {
@@ -74,6 +131,14 @@ export const Checkout: React.FC = () => {
       setShowSuccess(true);
       setTimeout(() => navigate('/'), 3000);
     }, 2500);
+  };
+
+  const handlePayment = () => {
+    if (paymentMethod === 'razorpay' || paymentMethod === 'upi') {
+      handleRazorpay();
+    } else {
+      handleManualPayment();
+    }
   };
 
   if (!sport || !turf || !slot) {
@@ -140,32 +205,39 @@ export const Checkout: React.FC = () => {
             <Card className="rounded-2xl p-6">
               <h2 className="mb-6 text-xl font-semibold">Payment Method</h2>
               <div className="space-y-4">
-                <div className="grid gap-4 sm:grid-cols-2">
+                <div className="grid gap-4 sm:grid-cols-3">
+                  <button
+                    onClick={() => setPaymentMethod('razorpay')}
+                    className={`flex flex-col items-center justify-center gap-2 rounded-xl border-2 p-4 transition-all ${paymentMethod === 'razorpay' ? 'shadow-lg' : 'border-transparent hover:border-border'}`}
+                    style={{ borderColor: paymentMethod === 'razorpay' ? sport.accentColor : undefined, background: paymentMethod === 'razorpay' ? `${sport.accentColor}10` : undefined }}
+                  >
+                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-600"><ShieldCheck className="h-6 w-6 text-white" /></div>
+                    <div className="text-center"><div className="text-sm font-semibold">Razorpay</div><div className="text-[10px] text-muted-foreground">All-in-one</div></div>
+                  </button>
                   <button
                     onClick={() => setPaymentMethod('upi')}
-                    className={`flex items-center gap-4 rounded-xl border-2 p-4 transition-all ${paymentMethod === 'upi' ? 'shadow-lg' : 'border-transparent hover:border-border'}`}
+                    className={`flex flex-col items-center justify-center gap-2 rounded-xl border-2 p-4 transition-all ${paymentMethod === 'upi' ? 'shadow-lg' : 'border-transparent hover:border-border'}`}
                     style={{ borderColor: paymentMethod === 'upi' ? sport.accentColor : undefined, background: paymentMethod === 'upi' ? `${sport.accentColor}10` : undefined }}
                   >
-                    <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#097939]"><Smartphone className="h-6 w-6 text-white" /></div>
-                    <div className="text-left"><div className="font-semibold">UPI</div><div className="text-xs text-muted-foreground">Secure Payment</div></div>
+                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#097939]"><Smartphone className="h-6 w-6 text-white" /></div>
+                    <div className="text-center"><div className="text-sm font-semibold">UPI</div><div className="text-[10px] text-muted-foreground">Razorpay UPI</div></div>
                   </button>
                   <button
                     onClick={() => setPaymentMethod('card')}
-                    className={`flex items-center gap-4 rounded-xl border-2 p-4 transition-all ${paymentMethod === 'card' ? 'shadow-lg' : 'border-transparent hover:border-border'}`}
+                    className={`flex flex-col items-center justify-center gap-2 rounded-xl border-2 p-4 transition-all ${paymentMethod === 'card' ? 'shadow-lg' : 'border-transparent hover:border-border'}`}
                     style={{ borderColor: paymentMethod === 'card' ? sport.accentColor : undefined, background: paymentMethod === 'card' ? `${sport.accentColor}10` : undefined }}
                   >
-                    <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#1a1a1a]"><CreditCard className="h-6 w-6 text-white" /></div>
-                    <div className="text-left"><div className="font-semibold">Credit/Debit Card</div><div className="text-xs text-muted-foreground">Secure Payment</div></div>
+                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#1a1a1a]"><CreditCard className="h-6 w-6 text-white" /></div>
+                    <div className="text-center"><div className="text-sm font-semibold">Card</div><div className="text-[10px] text-muted-foreground">Manual Entry</div></div>
                   </button>
                 </div>
 
                 <AnimatePresence mode="wait">
                   {paymentMethod === 'upi' && (
                     <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden pt-4">
-                      <div className="rounded-xl bg-muted/50 p-4">
-                        <Label htmlFor="upiId">UPI ID</Label>
-                        <Input id="upiId" placeholder="username@upi" value={upiId} onChange={(e) => setUpiId(e.target.value)} className="mt-2 rounded-xl bg-background" />
-                        <p className="mt-2 text-xs text-muted-foreground">Enter your VPA (e.g., name@okaxis)</p>
+                      <div className="rounded-xl bg-blue-500/5 border border-blue-500/20 p-4 text-center">
+                        <p className="text-sm text-blue-600 font-medium">Razorpay UPI Gateway</p>
+                        <p className="text-xs text-muted-foreground mt-1">You will be redirected to Razorpay to complete UPI payment</p>
                       </div>
                     </motion.div>
                   )}
@@ -187,6 +259,15 @@ export const Checkout: React.FC = () => {
                             <Input id="cvv" name="cvv" type="password" placeholder="***" value={cardData.cvv} onChange={handleCardChange} className="mt-2 rounded-xl bg-background" />
                           </div>
                         </div>
+                      </div>
+                    </motion.div>
+                  )}
+
+                  {paymentMethod === 'razorpay' && (
+                    <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden pt-4">
+                      <div className="rounded-xl bg-blue-500/5 border border-blue-500/20 p-4 text-center">
+                        <p className="text-sm text-blue-600 font-medium">Official Razorpay Gateway</p>
+                        <p className="text-xs text-muted-foreground mt-1">Supports UPI, Cards, Netbanking, and Wallets</p>
                       </div>
                     </motion.div>
                   )}
@@ -229,10 +310,10 @@ export const Checkout: React.FC = () => {
                     {isProcessing ? (
                       <div className="flex items-center gap-2"><Loader2 className="h-5 w-5 animate-spin" /> Processing...</div>
                     ) : (
-                      `Pay Now ₹${slot.price}`
+                      paymentMethod === 'razorpay' || paymentMethod === 'upi' ? `Pay with Razorpay ₹${slot.price}` : `Pay Now ₹${slot.price}`
                     )}
                   </Button>
-                  <p className="mt-4 text-center text-xs text-muted-foreground">Your payment is secure and encrypted</p>
+                  <p className="mt-4 text-center text-xs text-muted-foreground">Secure & Encrypted Payment</p>
                 </div>
               </Card>
             </motion.div>

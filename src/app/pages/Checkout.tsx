@@ -59,12 +59,15 @@ export const Checkout: React.FC = () => {
   const handleRazorpay = () => {
     setIsProcessing(true);
     
+    const LIVE_KEY_ID = import.meta.env.VITE_RAZORPAY_KEY_ID || "rzp_live_SLwGR5aDofE1lp";
+
     const options = {
-      key: import.meta.env.VITE_RAZORPAY_KEY_ID,
+      key: LIVE_KEY_ID,
       amount: slot.price * 100,
       currency: "INR",
       name: "TurfBook",
       description: `${sport.name} Booking`,
+      image: "https://images.unsplash.com/photo-1574629810360-7efbbe195018?w=128&q=80", // Valid public image
       handler: async function (response: any) {
         const customerDetails = {
           ...formData,

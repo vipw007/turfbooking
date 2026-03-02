@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router';
 import { motion } from 'motion/react';
 import { Calendar as CalendarIcon, Clock, MapPin, CheckCircle2 } from 'lucide-react';
@@ -8,7 +8,7 @@ import { Card } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
 import { Calendar } from '../components/ui/calendar';
-import { format } from 'date-fns';
+import { format, isToday, parse } from 'date-fns';
 
 export const SlotBooking: React.FC = () => {
   const { sportId } = useParams<{ sportId: string }>();
@@ -19,20 +19,32 @@ export const SlotBooking: React.FC = () => {
   const [selectedTurf, setSelectedTurf] = useState<string | null>(null);
   const [selectedSlot, setSelectedSlot] = useState<any | null>(null);
 
-  React.useEffect(() => {
+  const sport = sportId ? sports[sportId] : currentSport;
+  const turfs = TURFS.filter((t) => t.sportId === sport?.id);
+
+  // Auto-select the first turf on load
+  useEffect(() => {
     if (sportId && sports[sportId]) {
       setCurrentSport(sports[sportId]);
     }
-  }, [sportId, sports, setCurrentSport]);
+    if (turfs.length > 0 && !selectedTurf) {
+      setSelectedTurf(turfs[0].id);
+    }
+  }, [sportId, sports, setCurrentSport, turfs, selectedTurf]);
 
-  const sport = sportId ? sports[sportId] : currentSport;
-  const turfs = TURFS.filter((t) => t.sportId === sport?.id);
   const dateString = format(selectedDate, 'yyyy-MM-dd');
   const slots = selectedTurf
     ? generateTimeSlots(dateString, sport?.id || '').filter((s) => s.turfId === selectedTurf)
     : [];
 
   const selectedTurfData = turfs.find((t) => t.id === selectedTurf);
+
+  const isSlotInPast = (startTime: string) => {
+    if (!isToday(selectedDate)) return false;
+    const now = new Date();
+    const slotTime = parse(startTime, 'HH:mm', new Date());
+    return slotTime < now;
+  };
 
   const handleBooking = () => {
     if (selectedSlot) {
@@ -203,7 +215,9 @@ export const SlotBooking: React.FC = () => {
 
                   <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-6">
                     {slots.map((slot) => {
-                      const isUnavailable = slot.isBooked || slot.isPending;
+                      const isPast = isSlotInPast(slot.startTime);
+                      const isUnavailable = slot.isBooked || slot.isPending || isPast;
+                      
                       return (
                         <button
                           key={slot.id}
@@ -228,6 +242,7 @@ export const SlotBooking: React.FC = () => {
                         >
                           {slot.startTime}
                           {slot.isPending && <div className="text-[8px] uppercase">Pending</div>}
+                          {isPast && <div className="text-[8px] uppercase">Past</div>}
                         </button>
                       );
                     })}
@@ -240,7 +255,7 @@ export const SlotBooking: React.FC = () => {
                     </div>
                     <div className="flex items-center gap-2">
                       <div className="h-4 w-4 rounded bg-muted" />
-                      <span>Booked/Pending</span>
+                      <span>Booked/Past</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <div

@@ -9,7 +9,7 @@ import { SPORTS_DATA } from '../contexts/SportContext';
 
 export const Landing: React.FC = () => {
   const { currentSport, setCurrentSport, sports } = useSport();
-  const [selectedSportId, setSelectedSportId] = useState('football');
+  const [selectedSportId, setSelectedSportId] = useState<string | null>(null);
 
   const handleSportChange = (sportId: string) => {
     setSelectedSportId(sportId);
@@ -124,7 +124,7 @@ export const Landing: React.FC = () => {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.4 }}
             >
-              <Link to="/sports">
+              <Link to={selectedSportId ? `/booking/${selectedSportId}` : "/sports"}>
                 <Button
                   size="lg"
                   className="group rounded-full px-8 text-base font-semibold shadow-2xl transition-all duration-200 hover:scale-105"
@@ -250,7 +250,7 @@ export const Landing: React.FC = () => {
             <p className="mb-8 text-lg text-white/80">
               Book your favorite sport turf now and enjoy premium facilities
             </p>
-            <Link to="/sports">
+            <Link to={selectedSportId ? `/booking/${selectedSportId}` : "/sports"}>
               <Button
                 size="lg"
                 className="rounded-full px-8 text-base font-semibold shadow-2xl transition-all duration-200 hover:scale-105"
